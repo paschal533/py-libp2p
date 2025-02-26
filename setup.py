@@ -68,7 +68,7 @@ install_requires.extend(crypto_requires)
 
 setup(
     name="libp2p",
-    version="0.2.1",
+    version="0.2.2",
     description=description,
     long_description=long_description,
     long_description_content_type="text/markdown",
