@@ -1,12 +1,15 @@
 #!/usr/bin/env python
-import os
 import sys
-from setuptools import find_packages, setup
+
+from setuptools import (
+    find_packages,
+    setup,
+)
 
 description = "libp2p: The Python implementation of the libp2p networking stack"
 
 # Platform-specific dependencies
-if sys.platform == 'win32':
+if sys.platform == "win32":
     crypto_requires = []  # We'll use coincurve instead of fastecdsa on Windows
 else:
     crypto_requires = ["fastecdsa==1.7.5"]
