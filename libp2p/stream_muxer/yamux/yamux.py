@@ -26,6 +26,9 @@ from libp2p.abc import (
     IMuxedStream,
     ISecureConn,
 )
+from libp2p.network.connection.exceptions import (
+    RawConnError,
+)
 from libp2p.peer.id import (
     ID,
 )
@@ -524,19 +527,31 @@ class Yamux(IMuxedConn):
                             f"{length} for peer {self.peer_id}"
                         )
                 elif typ == TYPE_DATA:
-                    data = await self.secured_conn.read(length) if length > 0 else b""
-                    async with self.streams_lock:
-                        if stream_id in self.streams:
-                            self.stream_buffers[stream_id].extend(data)
-                            self.stream_events[stream_id].set()
-                            if flags & FLAG_FIN:
-                                logging.debug(
-                                    f"Received FIN for stream {self.peer_id}:"
-                                    f"{stream_id}, marking recv_closed"
-                                )
+                    try:
+                        data = (
+                            await self.secured_conn.read(length) if length > 0 else b""
+                        )
+                        async with self.streams_lock:
+                            if stream_id in self.streams:
+                                self.stream_buffers[stream_id].extend(data)
+                                self.stream_events[stream_id].set()
+                                if flags & FLAG_FIN:
+                                    logging.debug(
+                                        f"Received FIN for stream {self.peer_id}:"
+                                        f"{stream_id}, marking recv_closed"
+                                    )
+                                    self.streams[stream_id].recv_closed = True
+                                    if self.streams[stream_id].send_closed:
+                                        self.streams[stream_id].closed = True
+                    except Exception as e:
+                        logging.error(f"Error reading data for stream {stream_id}: {e}")
+                        # Mark stream as closed on read error
+                        async with self.streams_lock:
+                            if stream_id in self.streams:
                                 self.streams[stream_id].recv_closed = True
                                 if self.streams[stream_id].send_closed:
                                     self.streams[stream_id].closed = True
+                                self.stream_events[stream_id].set()
                 elif typ == TYPE_WINDOW_UPDATE:
                     increment = length
                     async with self.streams_lock:
@@ -554,18 +569,31 @@ class Yamux(IMuxedConn):
                     f"Error in handle_incoming for peer"
                     f"{self.peer_id}: {type(e).__name__}: {str(e)}"
                 )
-                await self._cleanup_on_error()
-                break
+                # Don't crash the whole connection for temporary errors
+                if self.event_shutting_down.is_set() or isinstance(
+                    e, (RawConnError, OSError)
+                ):
+                    await self._cleanup_on_error()
+                    break
+                # For other errors, log and continue
+                await trio.sleep(0.01)
 
     async def _cleanup_on_error(self) -> None:
+        # Set shutdown flag first to prevent other operations
+        self.event_shutting_down.set()
+
+        # Clean up streams
         async with self.streams_lock:
-            self.event_shutting_down.set()
             for stream in self.streams.values():
                 stream.closed = True
                 stream.send_closed = True
                 stream.recv_closed = True
+
+            # Clear buffers and events
             self.stream_buffers.clear()
             self.stream_events.clear()
+
+        # Close the secured connection
         try:
             await self.secured_conn.close()
             logging.debug(f"Successfully closed secured_conn for peer {self.peer_id}")
@@ -573,12 +601,21 @@ class Yamux(IMuxedConn):
             logging.error(
                 f"Error closing secured_conn for peer {self.peer_id}: {close_error}"
             )
+
+        # Set closed flag
         self.event_closed.set()
+
+        # Call on_close callback if provided
         if self.on_close:
             logging.debug(f"Calling on_close for peer {self.peer_id}")
-            if inspect.iscoroutinefunction(self.on_close):
-                await self.on_close()
-            else:
-                self.on_close()
+            try:
+                if inspect.iscoroutinefunction(self.on_close):
+                    await self.on_close()
+                else:
+                    self.on_close()
+            except Exception as callback_error:
+                logging.error(f"Error in on_close callback: {callback_error}")
+
+        # Cancel nursery tasks
         if self._nursery:
             self._nursery.cancel_scope.cancel()
