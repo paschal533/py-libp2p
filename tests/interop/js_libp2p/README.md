@@ -18,11 +18,13 @@ This repository contains interoperability tests for py-libp2p and js-libp2p usin
 ## Running Tests
 
 1. Change directory:
+
 ```
 cd tests/interop/js_libp2p
 ```
 
 2. Install dependencies:
+
 ```
 For JavaScript: cd js_node && npm install && cd ...
 ```
@@ -30,28 +32,31 @@ For JavaScript: cd js_node && npm install && cd ...
 3. Run the automated test:
 
 For Linux and Mac users:
+
 ```
 chmod +x scripts/run_test.sh
 ./scripts/run_test.sh
 ```
 
 For Windows users:
+
 ```
 .\scripts\run_test.ps1
 ```
+
 This starts the Python server on port 8000 and runs the JavaScript client to send 5 pings.
 
 ## Debugging
 
 - Logs are saved in py_node/py_server.log and js_node/js_client.log.
 - Check for:
-    - Successful connection establishment.
-    - Protocol negotiation (/ipfs/ping/1.0.0).
-    - 32-byte payload echo in server logs.
-    - RTT and payload hex in client logs.
-
+  - Successful connection establishment.
+  - Protocol negotiation (/ipfs/ping/1.0.0).
+  - 32-byte payload echo in server logs.
+  - RTT and payload hex in client logs.
 
 ## Test Plan
+
 ### The test verifies:
 
 - Stream Multiplexer Compatibility: Yamux is used and negotiates correctly.
@@ -64,12 +69,13 @@ This starts the Python server on port 8000 and runs the JavaScript client to sen
 ## Current Status
 
 ### Working:
+
 - TCP transport and Noise encryption are functional.
 - Yamux multiplexing is implemented in both nodes.
 - Multiaddr parsing works correctly.
 - Logging provides detailed debug information.
 
-
 ## Not Working:
+
 - Ping protocol handler fails to complete pings (JS client reports "operation aborted").
 - Potential issues with stream handling or protocol negotiation.

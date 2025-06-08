@@ -3,7 +3,7 @@
 [![libp2p.io](https://img.shields.io/badge/project-libp2p-yellow.svg?style=flat-square)](http://libp2p.io/)
 [![Discuss](https://img.shields.io/discourse/https/discuss.libp2p.io/posts.svg?style=flat-square)](https://discuss.libp2p.io)
 [![codecov](https://img.shields.io/codecov/c/github/libp2p/js-libp2p-examples.svg?style=flat-square)](https://codecov.io/gh/libp2p/js-libp2p-examples)
-[![CI](https://img.shields.io/github/actions/workflow/status/libp2p/js-libp2p-examples/ci.yml?branch=main\&style=flat-square)](https://github.com/libp2p/js-libp2p-examples/actions/workflows/ci.yml?query=branch%3Amain)
+[![CI](https://img.shields.io/github/actions/workflow/status/libp2p/js-libp2p-examples/ci.yml?branch=main&style=flat-square)](https://github.com/libp2p/js-libp2p-examples/actions/workflows/ci.yml?query=branch%3Amain)
 
 > An example chat app using libp2p
 
@@ -18,18 +18,18 @@
 ## Setup
 
 1. Install example dependencies
-    ```console
-    $ npm install
-    ```
-2. Open 2 terminal windows in the `./src` directory.
+   ```console
+   $ npm install
+   ```
+1. Open 2 terminal windows in the `./src` directory.
 
 ## Running
 
 1. Run the listener in window 1, `node listener.js`
-2. Run the dialer in window 2, `node dialer.js`
-3. Wait until the two peers discover each other
-4. Type a message in either window and hit *enter*
-5. Tell yourself secrets to your hearts content!
+1. Run the dialer in window 2, `node dialer.js`
+1. Wait until the two peers discover each other
+1. Type a message in either window and hit *enter*
+1. Tell yourself secrets to your hearts content!
 
 ## Need help?
 

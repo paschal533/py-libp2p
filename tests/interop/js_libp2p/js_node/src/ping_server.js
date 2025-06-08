@@ -28,7 +28,7 @@ function log(message) {
 
 async function createNode(port) {
   log('🔧 Creating libp2p node...')
-  
+
   const node = await createLibp2p({
     addresses: {
       listen: [`/ip4/0.0.0.0/tcp/${port}`]
@@ -59,63 +59,63 @@ async function createNode(port) {
       maxParallelDials: 10
     }
   })
-  
+
   log('✅ Node created successfully')
   return node
 }
 
 async function runServer(port) {
   log('🚀 Starting js-libp2p ping server...')
-  
+
   const node = await createNode(port)
-  
+
   // Add connection event listeners
   node.addEventListener('peer:connect', (evt) => {
     log(`🔗 New peer connected: ${evt.detail.toString()}`)
   })
-  
+
   node.addEventListener('peer:disconnect', (evt) => {
     log(`❌ Peer disconnected: ${evt.detail.toString()}`)
   })
-  
+
   // Add protocol handler for incoming streams
   node.addEventListener('peer:identify', (evt) => {
     log(`🔍 Peer identified: ${evt.detail.peerId.toString()}`)
     log(`   Protocols: ${evt.detail.protocols.join(', ')}`)
     log(`   Listen addresses: ${evt.detail.listenAddrs.map(addr => addr.toString()).join(', ')}`)
   })
-  
+
   await node.start()
   log('✅ Node started')
-  
+
   const peerId = node.peerId.toString()
   const listenAddrs = node.getMultiaddrs()
-  
+
   log(`📋 Peer ID: ${peerId}`)
   log(`🌐 Listen addresses:`)
   listenAddrs.forEach(addr => {
     log(`   ${addr.toString()}`)
   })
-  
+
   // Find the main TCP address for easy copy-paste
-  const tcpAddr = listenAddrs.find(addr => 
-    addr.toString().includes('/tcp/') && 
+  const tcpAddr = listenAddrs.find(addr =>
+    addr.toString().includes('/tcp/') &&
     !addr.toString().includes('/ws')
   )
-  
+
   if (tcpAddr) {
     log(`\n🧪 Test with py-libp2p:`)
     log(`   python ping_client.py ${tcpAddr.toString()}`)
     log(`\n🧪 Test with js-libp2p:`)
     log(`   node ping-client.js ${tcpAddr.toString()}`)
   }
-  
+
   log(`\n🏓 Ping service is running with protocol: /ipfs/ping/1.0.0`)
   log(`🔐 Security: Noise encryption`)
   log(`🚇 Muxer: Yamux stream multiplexing`)
   log(`\n⏳ Waiting for connections...`)
   log('Press Ctrl+C to exit')
-  
+
   // Keep the server running
   return new Promise((resolve, reject) => {
     process.on('SIGINT', () => {
@@ -126,7 +126,7 @@ async function runServer(port) {
         resolve()
       }).catch(reject)
     })
-    
+
     process.on('uncaughtException', (error) => {
       log(`💥 Uncaught exception: ${error.message}`)
       if (error.stack) {
@@ -141,12 +141,12 @@ async function runServer(port) {
 async function main() {
   const args = process.argv.slice(2)
   const port = parseInt(args[0]) || 9000
-  
+
   if (port <= 0 || port > 65535) {
     console.error('❌ Port must be between 1 and 65535')
     process.exit(1)
   }
-  
+
   try {
     await runServer(port)
   } catch (error) {
