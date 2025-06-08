@@ -42,7 +42,7 @@ RESP_TIMEOUT = 60
 
 
 async def handle_ping(stream: INetStream) -> None:
-    """Handle incoming ping requests from js-libp2p clients according to libp2p ping spec."""
+    """Handle incoming ping requests from js-libp2p clients"""
     peer_id = stream.muxed_conn.peer_id
     print(f"[INFO] New ping stream opened by {peer_id}")
     logging.info(f"Ping handler called for peer {peer_id}")
@@ -58,7 +58,8 @@ async def handle_ping(stream: INetStream) -> None:
 
                 if not data:
                     print(
-                        f"[INFO] No data received, connection likely closed by {peer_id}"
+                        f"[INFO] No data received,"
+                        f"connection likely closed by {peer_id}"
                     )
                     logging.debug("No data received, stream closed")
                     break
@@ -70,7 +71,8 @@ async def handle_ping(stream: INetStream) -> None:
 
                 ping_count += 1
                 print(
-                    f"[PING {ping_count}] Received ping from {peer_id}: {len(data)} bytes"
+                    f"[PING {ping_count}] Received ping from {peer_id}:"
+                    f"{len(data)} bytes"
                 )
                 logging.debug(f"Ping data: {data.hex()}")
 
@@ -149,12 +151,14 @@ async def send_ping_sequence(stream: INetStream, count: int = 5) -> None:
         success_count = len(rtts)
         loss_rate = ((count - success_count) / count) * 100
 
-        print(f"\n[STATS] Ping Statistics:")
         print(
-            f"   Packets: Sent={count}, Received={success_count}, Lost={count - success_count}"
+            f"   Packets: Sent={count}, Received={success_count},"
+            f" Lost={count - success_count}"
         )
         print(f"   Loss rate: {loss_rate:.1f}%")
-        print(f"   RTT: min={min_rtt:.2f}ms, avg={avg_rtt:.2f}ms, max={max_rtts:.2f}ms")
+        print(f"   RTT: min={min_rtt:.2f}ms, avg={avg_rtt:.2f}ms,
+            max={max_rtts:.2f}ms"
+        )
     else:
         print(f"\n[STATS] All pings failed ({count} attempts)")
 
