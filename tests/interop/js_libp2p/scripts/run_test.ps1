@@ -181,8 +181,8 @@ if (Test-Path $jsLogFile) {
 }
 
 Write-ColorOutput "[CLEANUP] Stopping processes..." $Yellow
-Stop-Process -Id $pyProcess.Id -Force -SilentlyContinue
-Stop-Process -Id $jsProcess.Id -Force -SilentlyContinue
+Stop-Process -Id $pyProcess.Id -Force -ErrorAction SilentlyContinue
+Stop-Process -Id $jsProcess.Id -Force -ErrorAction SilentlyContinue
 Set-Location -Path "../"
 
 if ($success) {
