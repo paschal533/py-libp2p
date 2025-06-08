@@ -156,8 +156,8 @@ async def send_ping_sequence(stream: INetStream, count: int = 5) -> None:
             f" Lost={count - success_count}"
         )
         print(f"   Loss rate: {loss_rate:.1f}%")
-        print(f"   RTT: min={min_rtt:.2f}ms, avg={avg_rtt:.2f}ms,
-            max={max_rtts:.2f}ms"
+        print(
+            f"   RTT: min={min_rtt:.2f}ms, avg={avg_rtt:.2f}ms," f"max={max_rtts:.2f}ms"
         )
     else:
         print(f"\n[STATS] All pings failed ({count} attempts)")
@@ -231,8 +231,8 @@ async def run_server(port: int) -> None:
         print(f"[INFO] Peer ID: {host.get_id()}")
         print(f"[INFO] Listening: /ip4/0.0.0.0/tcp/{port}")
         print(f"[INFO] Primary Protocol: {PING_PROTOCOL_ID}")
-        print(f"[INFO] Security: Noise encryption")
-        print(f"[INFO] Muxer: Yamux stream multiplexing")
+        # print(f"[INFO] Security: Noise encryption")
+        # print(f"[INFO] Muxer: Yamux stream multiplexing")
 
         print("\n[INFO] Registered protocols:")
         print(f"   - {PING_PROTOCOL_ID}")
@@ -240,13 +240,13 @@ async def run_server(port: int) -> None:
             print(f"   - {proto}")
 
         peer_id = host.get_id()
-        print(f"\n[TEST] Test with js-libp2p:")
+        print("\n[TEST] Test with js-libp2p:")
         print(f"   node ping.js client /ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}")
 
-        print(f"\n[TEST] Test with py-libp2p:")
+        print("\n[TEST] Test with py-libp2p:")
         print(f"   python ping.py client /ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}")
 
-        print(f"\n[INFO] Waiting for connections...")
+        print("\n[INFO] Waiting for connections...")
         print("Press Ctrl+C to exit")
 
         await trio.sleep_forever()
@@ -276,8 +276,8 @@ async def run_client(destination: str, count: int = 5) -> None:
     async with host.run(listen_addrs=[listen_addr]):
         print(f"[INFO] Our Peer ID: {host.get_id()}")
         print(f"[INFO] Target: {destination}")
-        print(f"[INFO] Security: Noise encryption")
-        print(f"[INFO] Muxer: Yamux stream multiplexing")
+        print("[INFO] Security: Noise encryption")
+        print("[INFO] Muxer: Yamux stream multiplexing")
 
         try:
             maddr = multiaddr.Multiaddr(destination)
