@@ -102,8 +102,7 @@ class IKem(Protocol):
 
         Args:
             ct: Ciphertext from the encapsulator.
-            sk: Local secret key, as returned by ``keygen()`` on *this*
-                backend. Its encoding is backend-specific.
+            sk: Secret key from this backend's ``keygen()``; encoding is opaque.
 
         Returns:
             Shared secret as 32 raw bytes.

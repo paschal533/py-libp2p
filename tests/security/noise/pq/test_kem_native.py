@@ -25,7 +25,7 @@ Two asymmetries between the backends are deliberate and pinned here:
   interoperability; only ``pk`` (1184) and ``ct`` (1088) are wire formats.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 import hashlib
 import logging
 import os
@@ -114,7 +114,7 @@ def _unsupported_mlkem_module() -> object:
 
 
 @pytest.fixture(autouse=True)
-def _clear_backend_selection_cache() -> object:
+def _clear_backend_selection_cache() -> Generator[None, None, None]:
     """
     Reset the cached backend selection around every test in this module.
 
@@ -555,7 +555,7 @@ class TestMakeFastKemSelection:
 
         def _counting_loader() -> object:
             nonlocal probes
-            probes += 1
+            probes = probes + 1
             raise ImportError("simulated: cryptography has no mlkem module")
 
         monkeypatch.setattr(kem_module, "_load_native_mlkem", _counting_loader)

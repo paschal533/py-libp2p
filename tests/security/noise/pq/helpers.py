@@ -188,13 +188,15 @@ async def write_frame(conn: IRawConnection, body: bytes) -> None:
 
 
 async def _read_exactly(conn: IRawConnection, size: int) -> bytes:
-    buf = b""
-    while len(buf) < size:
-        chunk = await conn.read(size - len(buf))
+    chunks: list[bytes] = []
+    received = 0
+    while received < size:
+        chunk = await conn.read(size - received)
         if not chunk:
-            raise EOFError(f"connection closed after {len(buf)} of {size} bytes")
-        buf += chunk
-    return buf
+            raise EOFError(f"connection closed after {received} of {size} bytes")
+        chunks.append(chunk)
+        received += len(chunk)
+    return b"".join(chunks)
 
 
 async def read_frame(conn: IRawConnection) -> bytes:

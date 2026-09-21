@@ -253,8 +253,7 @@ class PatternXXhfs:
         Raises:
             PeerIDMismatchesPubkey: Responder peer ID mismatch (non-None only).
             InvalidSignature: Responder identity signature is invalid.
-            HandshakeMalformed: Message B was truncated, oversized or
-                otherwise unparseable, or a primitive rejected its input.
+            HandshakeMalformed: Message B was truncated, oversized or unparseable.
 
         """
         try:
@@ -410,8 +409,7 @@ class PatternXXhfs:
 
         Raises:
             InvalidSignature: If the initiator's identity signature is invalid.
-            HandshakeMalformed: Message A or C was truncated, oversized or
-                otherwise unparseable, or a primitive rejected its input.
+            HandshakeMalformed: Message A or C was malformed.
 
         """
         try:

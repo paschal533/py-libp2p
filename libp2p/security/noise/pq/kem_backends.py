@@ -23,6 +23,8 @@ import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .kem import IKem
 
 logger = logging.getLogger(__name__)
@@ -55,7 +57,7 @@ _NO_BACKEND_ERROR = (
 
 
 @functools.lru_cache(maxsize=1)
-def _select_kem_class() -> type[IKem]:
+def _select_kem_class() -> Callable[[], IKem]:
     """
     Decide once which ML-KEM-768 backend this process uses.
 
@@ -63,6 +65,13 @@ def _select_kem_class() -> type[IKem]:
     it is a property of the build, not of the connection, and it used to be
     re-run for every inbound connection before the peer had authenticated
     anything.
+
+    The result is typed as a zero-argument factory rather than ``type[IKem]``.
+    ``IKem`` is a :class:`typing.Protocol`, and a protocol carries no
+    ``__init__``, so ``type[IKem]`` promises a class that nothing is allowed
+    to construct. ``Callable[[], IKem]`` states the contract this module
+    actually relies on and that both backends satisfy: callable with no
+    arguments, yielding an ``IKem``.
 
     Tests that change the availability of a backend must call
     ``_select_kem_class.cache_clear()``.
