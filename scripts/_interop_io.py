@@ -39,7 +39,10 @@ async def with_deadline(
     """Await ``coro`` under a deadline, reporting which phase ran out of time."""
     try:
         return await asyncio.wait_for(coro, timeout)
-    except TimeoutError as exc:
+    except (asyncio.TimeoutError, TimeoutError) as exc:
+        # On Python 3.10 asyncio.TimeoutError is a distinct class from the
+        # builtin TimeoutError; they were unified only in 3.11, so catching
+        # the builtin alone let the raw asyncio error escape on 3.10.
         raise TimeoutError(f"{what} did not finish within {timeout:g}s") from exc
 
 
