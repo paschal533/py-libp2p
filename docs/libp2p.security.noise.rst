@@ -45,6 +45,14 @@ libp2p.security.noise.patterns module
    :undoc-members:
    :show-inheritance:
 
+libp2p.security.noise.transcript\_binding module
+------------------------------------------------
+
+.. automodule:: libp2p.security.noise.transcript_binding
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 libp2p.security.noise.transport module
 --------------------------------------
 

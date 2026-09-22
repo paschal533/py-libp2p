@@ -20,6 +20,7 @@ from libp2p.crypto.keys import (
 from libp2p.custom_types import TProtocol
 from libp2p.peer.id import ID
 
+from ..transcript_binding import TranscriptBindingConfig
 from .kem import IKem
 from .kem_backends import make_fast_kem
 from .patterns_pq import PatternXXhfs
@@ -40,10 +41,14 @@ class TransportPQ(ISecureTransport):
         libp2p_keypair: KeyPair,
         noise_privkey: PrivateKey,
         kem: IKem | None = None,
+        transcript_binding: TranscriptBindingConfig | None = None,
     ) -> None:
         """
         ``kem`` pins the ML-KEM-768 backend; the default asks
         ``make_fast_kem()``.
+
+        ``transcript_binding`` turns on transcript-bound security protocol
+        negotiation; ``None`` leaves that defence off.
 
         The KEM is resolved here rather than per connection. Backend selection
         probes ``cryptography`` for ML-KEM support, so doing it in
@@ -56,6 +61,7 @@ class TransportPQ(ISecureTransport):
         self.noise_privkey = noise_privkey
         self.local_peer = ID.from_pubkey(libp2p_keypair.public_key)
         self.kem: IKem = kem if kem is not None else make_fast_kem()
+        self.transcript_binding = transcript_binding
 
     def get_pattern(self) -> PatternXXhfs:
         """
@@ -70,6 +76,7 @@ class TransportPQ(ISecureTransport):
             libp2p_privkey=self.libp2p_privkey,
             noise_static_key=self.noise_privkey,
             kem=self.kem,
+            transcript_binding=self.transcript_binding,
         )
 
     async def secure_inbound(self, conn: IRawConnection) -> ISecureConn:

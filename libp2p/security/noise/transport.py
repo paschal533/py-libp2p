@@ -29,6 +29,7 @@ from .patterns import (
     PatternXX,
 )
 from .rekey import RekeyManager, RekeyPolicy
+from .transcript_binding import TranscriptBindingConfig
 from .webtransport import WebTransportSupport
 
 PROTOCOL_ID = TProtocol("/noise")
@@ -44,6 +45,7 @@ class Transport(ISecureTransport):
     webtransport_support: WebTransportSupport
     early_data_manager: EarlyDataManager
     rekey_manager: RekeyManager
+    transcript_binding: TranscriptBindingConfig | None
 
     def __init__(
         self,
@@ -52,6 +54,7 @@ class Transport(ISecureTransport):
         early_data: bytes | None = None,
         early_data_handler: EarlyDataHandler | None = None,
         rekey_policy: RekeyPolicy | None = None,
+        transcript_binding: TranscriptBindingConfig | None = None,
     ) -> None:
         """
         Initialize enhanced Noise transport.
@@ -62,12 +65,15 @@ class Transport(ISecureTransport):
             early_data: Optional early data
             early_data_handler: Optional early data handler
             rekey_policy: Optional rekey policy
+            transcript_binding: Optional transcript-bound negotiation config;
+            None leaves the defence off
 
         """
         self.libp2p_privkey = libp2p_keypair.private_key
         self.noise_privkey = noise_privkey
         self.local_peer = ID.from_pubkey(libp2p_keypair.public_key)
         self.early_data = early_data
+        self.transcript_binding = transcript_binding
 
         # Initialize advanced features
         self.webtransport_support = WebTransportSupport()
@@ -89,6 +95,7 @@ class Transport(ISecureTransport):
             self.libp2p_privkey,
             self.noise_privkey,
             self.early_data,
+            transcript_binding=self.transcript_binding,
         )
 
     async def secure_inbound(self, conn: IRawConnection) -> ISecureConn:

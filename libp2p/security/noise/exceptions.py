@@ -26,6 +26,22 @@ class PeerIDMismatchesPubkey(NoiseFailure):
     pass
 
 
+class SecurityProtocolDowngrade(NoiseFailure):
+    """
+    Raised when the negotiated security protocol is not the one the two peers'
+    signed protocol lists imply.
+
+    multistream-select runs unauthenticated and in plaintext, so an on-path
+    attacker can strip a proposal or forge an ``na`` to push both peers onto a
+    weaker encrypter. Transcript binding has each peer sign its configured
+    protocol list inside the encrypted handshake payload, bound to the Noise
+    transcript hash, and both peers then recompute the outcome the negotiation
+    should have produced. This error is distinguishable from an ordinary
+    handshake failure so that callers can tell a downgrade from a peer that
+    simply could not complete the handshake.
+    """
+
+
 class HandshakeMalformed(NoiseFailure):
     """
     Raised when a handshake message is truncated, oversized or otherwise

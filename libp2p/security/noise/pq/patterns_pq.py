@@ -55,8 +55,12 @@ from ..exceptions import (
 from ..io import NoisePacketReadWriter
 from ..messages import (
     NoiseHandshakePayload,
-    make_handshake_payload_sig,
+    build_handshake_payload,
     verify_handshake_payload_sig,
+)
+from ..transcript_binding import (
+    TranscriptBindingConfig,
+    check_negotiation,
 )
 from .kem import (
     MLKEM768_CT_SIZE,
@@ -200,12 +204,14 @@ class PatternXXhfs:
         noise_static_key: PrivateKey,
         kem: IKem | None = None,
         early_data: bytes | None = None,
+        transcript_binding: TranscriptBindingConfig | None = None,
     ) -> None:
         self.local_peer = local_peer
         self.libp2p_privkey = libp2p_privkey
         self.noise_static_key = noise_static_key
         self.kem: IKem = kem if kem is not None else make_fast_kem()
         self.early_data = early_data
+        self.transcript_binding = transcript_binding
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -219,13 +225,28 @@ class PatternXXhfs:
         """Return the raw 32-byte X25519 static private key."""
         return self.noise_static_key.to_bytes()
 
-    def _make_payload(self) -> bytes:
-        """Serialize a libp2p NoiseHandshakePayload (id_pubkey + id_sig)."""
-        static_pubkey = self.noise_static_key.get_public_key()
-        sig = make_handshake_payload_sig(self.libp2p_privkey, static_pubkey)
-        return NoiseHandshakePayload(
-            id_pubkey=self.libp2p_privkey.get_public_key(),
-            id_sig=sig,
+    def _make_payload(self, payload_hash: bytes | None = None) -> bytes:
+        """
+        Serialize a libp2p NoiseHandshakePayload (id_pubkey + id_sig).
+
+        ``payload_hash`` is the symmetric state's ``h`` at the point this
+        payload is about to be encrypted. It is what binds the declared
+        security protocol list to this session, so it has to be read from the
+        state after the message tokens have run and before ``encrypt_and_hash``
+        mixes the payload ciphertext back in.
+
+        Args:
+            payload_hash: The Noise ``h`` value, or None when binding is off.
+
+        Returns:
+            bytes: The serialized payload.
+
+        """
+        return build_handshake_payload(
+            self.libp2p_privkey,
+            self.noise_static_key.get_public_key(),
+            config=self.transcript_binding,
+            payload_hash=payload_hash,
         ).serialize()
 
     # ------------------------------------------------------------------
@@ -348,12 +369,20 @@ class PatternXXhfs:
         # es: DH(e_init, s_resp)
         ss.mix_key(_dh(e_sk, resp_s_pk_bytes, "msg B es"))
 
-        # Decrypt responder's handshake payload
+        # Decrypt responder's handshake payload. `h` is read first because
+        # decrypt_and_hash mixes the ciphertext in, and the value the responder
+        # signed is the one used as associated data for this decryption.
+        resp_payload_hash = ss.h
         resp_payload_bytes = ss.decrypt_and_hash(msg_b[offset:])
         resp_payload = NoiseHandshakePayload.deserialize(resp_payload_bytes)
 
         # Verify responder's libp2p identity signature
-        if not verify_handshake_payload_sig(resp_payload, resp_s_pk):
+        if not verify_handshake_payload_sig(
+            resp_payload,
+            resp_s_pk,
+            config=self.transcript_binding,
+            payload_hash=resp_payload_hash,
+        ):
             raise InvalidSignature
         resp_peer_id = ID.from_pubkey(resp_payload.id_pubkey)
         if remote_peer is not None and resp_peer_id != remote_peer:
@@ -368,10 +397,19 @@ class PatternXXhfs:
         # se: DH(s_init, e_resp)
         ss.mix_key(_dh(self._static_sk_bytes(), resp_e_pk, "msg C se"))
 
-        # Encrypt our handshake payload
-        enc_payload_c = ss.encrypt_and_hash(self._make_payload())
+        # Encrypt our handshake payload, built only now so that it can commit
+        # to the transcript hash it is about to be encrypted under.
+        own_payload_hash = ss.h
+        enc_payload_c = ss.encrypt_and_hash(self._make_payload(own_payload_hash))
         await pkt.write_msg(enc_s_c + enc_payload_c)
         logger.debug("handshake_outbound: msg C sent")
+
+        # Both signed offers are in hand, so the negotiation can be replayed.
+        check_negotiation(
+            self.transcript_binding,
+            is_initiator=True,
+            remote_extensions=resp_payload.extensions,
+        )
 
         # ---- Split and return ----------------------------------------
         cs1, cs2 = ss.split()
@@ -481,8 +519,10 @@ class PatternXXhfs:
         # es: DH(s_resp, e_init)
         ss.mix_key(_dh(self._static_sk_bytes(), init_e_pk, "msg B es"))
 
-        # Encrypt our handshake payload
-        enc_payload_b = ss.encrypt_and_hash(self._make_payload())
+        # Encrypt our handshake payload, built only now so that it can commit
+        # to the transcript hash it is about to be encrypted under.
+        own_payload_hash = ss.h
+        enc_payload_b = ss.encrypt_and_hash(self._make_payload(own_payload_hash))
 
         await pkt.write_msg(e_pk + enc_ct + enc_s + enc_payload_b)
         logger.debug("handshake_inbound: msg B sent")
@@ -503,14 +543,29 @@ class PatternXXhfs:
         # se: DH(e_resp, s_init)
         ss.mix_key(_dh(e_sk, init_s_pk_bytes, "msg C se"))
 
-        # Decrypt initiator's handshake payload
+        # Decrypt initiator's handshake payload. `h` is read first: it is the
+        # associated data for this decryption and therefore the value the
+        # initiator signed.
+        init_payload_hash = ss.h
         init_payload_bytes = ss.decrypt_and_hash(msg_c[offset:])
         init_payload = NoiseHandshakePayload.deserialize(init_payload_bytes)
 
         # Verify initiator's libp2p identity signature
-        if not verify_handshake_payload_sig(init_payload, init_s_pk):
+        if not verify_handshake_payload_sig(
+            init_payload,
+            init_s_pk,
+            config=self.transcript_binding,
+            payload_hash=init_payload_hash,
+        ):
             raise InvalidSignature
         init_peer_id = ID.from_pubkey(init_payload.id_pubkey)
+
+        # Both signed offers are in hand, so the negotiation can be replayed.
+        check_negotiation(
+            self.transcript_binding,
+            is_initiator=False,
+            remote_extensions=init_payload.extensions,
+        )
 
         # ---- Split and return ----------------------------------------
         cs1, cs2 = ss.split()
