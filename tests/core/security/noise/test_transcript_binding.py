@@ -39,6 +39,7 @@ from libp2p.security.noise.transcript_binding import (
     has_transcript_binding,
     transcript_signature_payload,
 )
+from libp2p.security.noise.transport import Transport
 from tests.utils.factories import noise_static_key_factory, raw_conn_factory
 
 HFS = "/noise-mlkem768-hfs/0.2.0"
@@ -595,3 +596,46 @@ def test_a_remote_protocol_list_that_is_too_long_is_rejected_not_raised(
         config=config,
         payload_hash=FAKE_HASH,
     )
+
+
+class TestVariantDeployment:
+    """
+    The two variants are deployed in different places, because one of the four
+    combinations cannot work.
+
+    ``extension`` is wire compatible, so it rides on the existing /noise
+    identifier. ``identity`` is not: it widens what identity_sig covers, and
+    /noise is an identifier every libp2p implementation already answers to, so
+    such a peer would negotiate /noise successfully and then fail signature
+    verification against all of them. Refusing at construction turns a
+    network-wide partition into a configuration error.
+    """
+
+    def _classical(self, **kwargs: object) -> Transport:
+        return Transport(
+            libp2p_keypair=create_new_key_pair(),
+            noise_privkey=noise_static_key_factory(),
+            **kwargs,  # type: ignore[arg-type]
+        )
+
+    def test_identity_variant_is_refused_on_noise(self) -> None:
+        config = make_config(actual_protocol=NOISE, variant="identity")
+
+        with pytest.raises(ValueError, match="not available on"):
+            self._classical(transcript_binding=config)
+
+    def test_warn_mode_does_not_soften_the_refusal(self) -> None:
+        config = make_config(actual_protocol=NOISE, variant="identity", mode="warn")
+
+        with pytest.raises(ValueError, match="not available on"):
+            self._classical(transcript_binding=config)
+
+    def test_extension_variant_is_allowed_on_noise(self) -> None:
+        config = make_config(actual_protocol=NOISE, variant="extension")
+
+        assert self._classical(transcript_binding=config).transcript_binding is config
+
+    def test_off_mode_is_allowed_whatever_the_variant(self) -> None:
+        config = make_config(actual_protocol=NOISE, variant="identity", mode="off")
+
+        assert self._classical(transcript_binding=config).transcript_binding is config

@@ -73,6 +73,27 @@ class Transport(ISecureTransport):
         self.noise_privkey = noise_privkey
         self.local_peer = ID.from_pubkey(libp2p_keypair.public_key)
         self.early_data = early_data
+
+        # Refused here rather than discovered as an outage. The identity
+        # variant widens what identity_sig covers, and /noise is an identifier
+        # every libp2p implementation already answers to, so such a peer
+        # negotiates /noise successfully and then fails signature verification
+        # against all of them, in any mode. It is available on the XXhfs
+        # transport, which carries a separate identifier for it.
+        if (
+            transcript_binding is not None
+            and transcript_binding.enabled
+            and transcript_binding.variant == "identity"
+        ):
+            raise ValueError(
+                'transcript binding variant "identity" is not available on '
+                "/noise, because it changes what identity_sig covers and "
+                "/noise cannot carry a second, incompatible meaning. Use "
+                '"extension" here, which older peers ignore, or the identity '
+                "variant on TransportPQ, which advertises its own protocol "
+                "identifier."
+            )
+
         self.transcript_binding = transcript_binding
 
         # Initialize advanced features

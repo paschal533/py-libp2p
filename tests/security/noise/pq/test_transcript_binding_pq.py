@@ -16,6 +16,12 @@ from libp2p.crypto.x25519 import X25519PrivateKey
 from libp2p.peer.id import ID
 from libp2p.security.noise.exceptions import SecurityProtocolDowngrade
 from libp2p.security.noise.pq.patterns_pq import PatternXXhfs
+from libp2p.security.noise.pq.transport_pq import (
+    IDENTITY_BOUND_PROTOCOL_ID,
+    PROTOCOL_ID,
+    TransportPQ,
+    protocol_id_for,
+)
 from libp2p.security.noise.transcript_binding import (
     TranscriptBindingConfig,
     TranscriptBindingVariant,
@@ -149,3 +155,64 @@ async def test_warn_mode_completes_the_handshake() -> None:
     responder, responder_peer = make_pattern(config)
 
     assert await run_handshake(initiator, responder, responder_peer) == []
+
+
+class TestIdentifierMovesWithTheVariant:
+    """
+    The identity variant carries its own protocol identifier.
+
+    A peer binding that way verifies a different message, so it must not answer
+    to the identifier used by peers that do not. Letting multistream-select
+    separate them is the difference between "no protocol in common" and a
+    handshake that negotiates and then fails on a signature.
+    """
+
+    def _transport(self, config: TranscriptBindingConfig | None) -> TransportPQ:
+        return TransportPQ(
+            libp2p_keypair=create_new_key_pair(),
+            noise_privkey=X25519PrivateKey.new(),
+            transcript_binding=config,
+        )
+
+    def test_identity_variant_advertises_the_bound_identifier(self) -> None:
+        config = make_config(
+            actual_protocol=IDENTITY_BOUND_PROTOCOL_ID,
+            protocols=(IDENTITY_BOUND_PROTOCOL_ID, NOISE),
+            variant="identity",
+        )
+
+        assert self._transport(config).protocol_id == IDENTITY_BOUND_PROTOCOL_ID
+
+    def test_extension_variant_keeps_the_ordinary_identifier(self) -> None:
+        config = make_config(actual_protocol=HFS, variant="extension")
+
+        assert self._transport(config).protocol_id == PROTOCOL_ID
+
+    def test_off_and_unconfigured_keep_the_ordinary_identifier(self) -> None:
+        off = make_config(actual_protocol=HFS, variant="identity", mode="off")
+
+        assert self._transport(off).protocol_id == PROTOCOL_ID
+        assert self._transport(None).protocol_id == PROTOCOL_ID
+
+    def test_protocol_id_for_matches_the_transport(self) -> None:
+        for config in (
+            None,
+            make_config(actual_protocol=HFS, variant="extension"),
+            make_config(
+                actual_protocol=IDENTITY_BOUND_PROTOCOL_ID,
+                protocols=(IDENTITY_BOUND_PROTOCOL_ID, NOISE),
+                variant="identity",
+            ),
+        ):
+            assert protocol_id_for(config) == self._transport(config).protocol_id
+
+    def test_a_config_naming_the_wrong_identifier_is_refused(self) -> None:
+        """
+        The downgrade check compares against ``actual_protocol``, so a config
+        naming an identifier this transport does not advertise would compare
+        against the wrong thing and either miss a downgrade or invent one.
+        """
+        config = make_config(actual_protocol=HFS, variant="identity")
+
+        with pytest.raises(ValueError, match="advertises"):
+            self._transport(config)

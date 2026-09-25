@@ -27,6 +27,30 @@ from .patterns_pq import PatternXXhfs
 
 PROTOCOL_ID = TProtocol("/noise-mlkem768-hfs/0.2.0")
 
+#: Identifier used when the handshake is bound with the ``identity`` variant.
+#:
+#: That variant widens what ``identity_sig`` covers, so a peer using it cannot
+#: complete a handshake with one that does not. Carrying it on a separate
+#: identifier lets multistream-select keep the two apart, rather than pairing
+#: them and surfacing the difference as a signature failure.
+IDENTITY_BOUND_PROTOCOL_ID = TProtocol("/noise-mlkem768-hfs/0.3.0")
+
+
+def protocol_id_for(config: TranscriptBindingConfig | None) -> TProtocol:
+    """
+    The identifier a transport with this configuration has to advertise.
+
+    Args:
+        config: The transcript-binding configuration, or None when off.
+
+    Returns:
+        TProtocol: The protocol identifier to register this transport under.
+
+    """
+    if config is not None and config.enabled and config.variant == "identity":
+        return IDENTITY_BOUND_PROTOCOL_ID
+    return PROTOCOL_ID
+
 
 class TransportPQ(ISecureTransport):
     """
@@ -62,6 +86,23 @@ class TransportPQ(ISecureTransport):
         self.local_peer = ID.from_pubkey(libp2p_keypair.public_key)
         self.kem: IKem = kem if kem is not None else make_fast_kem()
         self.transcript_binding = transcript_binding
+        self.protocol_id = protocol_id_for(transcript_binding)
+
+        # The downgrade check compares the negotiated protocol against
+        # ``actual_protocol``, so a config naming a different identifier than
+        # the one this transport is registered under would compare against the
+        # wrong thing and either miss a downgrade or invent one.
+        if (
+            transcript_binding is not None
+            and transcript_binding.enabled
+            and transcript_binding.actual_protocol != self.protocol_id
+        ):
+            raise ValueError(
+                "transcript_binding.actual_protocol is "
+                f"{transcript_binding.actual_protocol!r} but this transport "
+                f"advertises {self.protocol_id!r}. The identity variant moves "
+                "the identifier; use protocol_id_for() to derive it."
+            )
 
     def get_pattern(self) -> PatternXXhfs:
         """
