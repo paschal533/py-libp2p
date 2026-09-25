@@ -17,6 +17,7 @@ import asyncio
 import sys
 from typing import cast
 
+from _interop_binding import MODES, binding_for_mode, protocol_id_for_mode
 from _interop_io import (
     AsyncioTCPConn,
     out,
@@ -33,10 +34,14 @@ from libp2p.security.noise.pq.kem_backends import make_fast_kem
 from libp2p.security.noise.pq.patterns_pq import PatternXXhfs
 
 
-async def main(port: int) -> None:
+async def main(port: int, binding_mode: str, simulate_downgrade: bool) -> None:
     identity = ed25519_key_pair()
     local_peer = ID.from_pubkey(identity.public_key)
     out(f"LOCAL {local_peer}")
+    out(
+        f"BINDING {binding_mode} {protocol_id_for_mode(binding_mode)}"
+        + (" SIMULATE_DOWNGRADE" if simulate_downgrade else "")
+    )
 
     reader, writer = await asyncio.open_connection("127.0.0.1", port)
     conn = AsyncioTCPConn(reader, writer, is_initiator=True)
@@ -45,6 +50,7 @@ async def main(port: int) -> None:
         libp2p_privkey=identity.private_key,
         noise_static_key=x25519_key_pair().private_key,
         kem=make_fast_kem(),
+        transcript_binding=binding_for_mode(binding_mode, simulate_downgrade),
     )
     session = await pattern.handshake_outbound(cast(IRawConnection, conn), None)
     out(f"PEER {session.get_remote_peer()}")
@@ -57,9 +63,27 @@ async def main(port: int) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=9999)
+    parser.add_argument(
+        "--transcript-binding",
+        choices=MODES,
+        default="off",
+        help="transcript-bound negotiation: off, extension or identity",
+    )
+    parser.add_argument(
+        "--simulate-downgrade",
+        action="store_true",
+        help="offer a protocol both peers prefer but neither runs, so the "
+        "check must refuse the session (negative control)",
+    )
     try:
         # Overall deadline: a silent listener must not pin this process.
-        asyncio.run(with_deadline(main(parser.parse_args().port), "interop dialer run"))
+        args = parser.parse_args()
+        asyncio.run(
+            with_deadline(
+                main(args.port, args.transcript_binding, args.simulate_downgrade),
+                "interop dialer run",
+            )
+        )
     except Exception as exc:  # harness boundary: report and exit non-zero
         print(f"ERROR {exc!r}", file=sys.stderr, flush=True)
         sys.exit(1)
