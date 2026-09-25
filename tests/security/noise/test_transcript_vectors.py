@@ -201,3 +201,24 @@ def test_length_prefixes_separate_lists_that_would_otherwise_collide() -> None:
     assert (
         canonical_protocols(["ab", "c"]).hex() != canonical_protocols(["a", "bc"]).hex()
     )
+
+
+def test_protocol_identifiers_match() -> None:
+    """
+    The identity variant moves the protocol identifier, so both constants are
+    duplicated in every implementation.
+
+    A typo in one of them fails no implementation's own tests: it surfaces in
+    the field as two peers with no protocol in common. Checking them against
+    the shared fixture makes that a test failure instead.
+    """
+    from libp2p.security.noise.pq.transport_pq import (
+        IDENTITY_BOUND_PROTOCOL_ID,
+        PROTOCOL_ID,
+    )
+
+    recorded = _DATA["protocol_ids"]
+
+    assert str(PROTOCOL_ID) == recorded["hybrid"]
+    assert str(IDENTITY_BOUND_PROTOCOL_ID) == recorded["hybrid_identity_bound"]
+    assert recorded["hybrid"] != recorded["hybrid_identity_bound"]

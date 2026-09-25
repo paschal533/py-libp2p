@@ -13,6 +13,10 @@
     "NoiseExtensions.security_protocols": 4,
     "NoiseExtensions.transcript_sig": 5
   },
+  "protocol_ids": {
+    "hybrid": "/noise-mlkem768-hfs/0.2.0",
+    "hybrid_identity_bound": "/noise-mlkem768-hfs/0.3.0"
+  },
   "vectors": [
     {
       "protocols": [
